@@ -2,16 +2,13 @@
 Module containing methods to transform the inputs of functions based on the function type setting,
 common signitures or mapping defined at call time
 """
+from ast import Module
 import inspect
 import types
 import typing as T
 from functools import wraps
 
 from earthkit import data
-import numpy as np
-import xarray as xr
-
-import yaml
 
 try:
     UNION_TYPES = [T.Union, types.UnionType]
@@ -105,14 +102,19 @@ def signature_mapping(signature, kwarg_types):
     return mapping
 
 
-def transform_module_inputs(module, decorator=transform_function_inputs, **decorator_kwargs):
+def transform_module_inputs(in_module, decorator=transform_function_inputs, **decorator_kwargs):
     """
     Transform the inputs to all functions in a module.
     """
-    for name in dir(module):
+    # wrapped_module must be different to original to prevent overriding py-cached module
+    wrapped_module = Module
+    for name in dir(in_module):
         if name.startswith('_'):
             continue
-        func = getattr(module, name)
+        func = getattr(in_module, name)
         if isinstance(func, types.FunctionType):
-            setattr(module, name, decorator(func, **decorator_kwargs))
-    return module
+            setattr(wrapped_module, name, decorator(func, **decorator_kwargs))
+        else:
+            # If not a func, we just copy
+            setattr(wrapped_module, name, func)
+    return wrapped_module
